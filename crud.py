@@ -1,8 +1,10 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.status import HTTP_204_NO_CONTENT
 from fastapi.responses import JSONResponse
 from data_base import models
 import schemas
+from data_base.models import DBProduct
 
 
 def get_all_products(db_session: Session):
@@ -30,16 +32,20 @@ def delete_product(db_session: Session, product_id: int):
     return JSONResponse(content={"error": "Product not found"}, status_code=404)
 
 
-def create_product(db_session: Session, product_scheme: schemas.ProductCreateScheme):
-    db_product = models.DBProduct(
-        name=product_scheme.name,
-        description=product_scheme.description,
-        price=product_scheme.price,
-    )
-    db_session.add(db_product)
-    db_session.commit()
-    db_session.refresh(db_product)
-    return db_product
+def create_product(db_session: Session, product: schemas.ProductCreateScheme):
+    existing_product = db_session.query(DBProduct).filter_by(name=product.name).first()
+    if existing_product:
+        raise ValueError(f"Product with name '{product.name}' already exists.")
+    else:
+        db_product = models.DBProduct(
+            name=product.name,
+            description=product.description,
+            price=product.price,
+        )
+        db_session.add(db_product)
+        db_session.commit()
+        db_session.refresh(db_product)
+        return db_product
 
 
 def update_single_product(
